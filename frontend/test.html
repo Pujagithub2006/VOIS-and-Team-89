@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VOIS Test</title>
+    <style>
+        body { font-family: sans-serif; 
+            background: #f0f2f5; 
+        }
+        #chat-icon {
+            position: fixed; 
+            bottom: 20px; 
+            right: 20px;
+            width: 60px; 
+            height: 60px; 
+            background: #2563eb;
+            color: white; 
+            border-radius: 50%; 
+            font-size: 30px;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            cursor: pointer; 
+            z-index: 10000; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        #chatbox {
+            position: fixed; 
+            bottom: 90px; 
+            right: 20px;
+            width: 300px; 
+            height: 400px; 
+            background: white;
+            border-radius: 15px; 
+            display: none; 
+            flex-direction: column;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2); 
+            z-index: 9999; 
+            overflow: hidden;
+        }
+        .header { 
+            background: #2563eb; 
+            color: white; 
+            padding: 15px; 
+            font-weight: bold; 
+        }
+        #messages { 
+            flex: 1; 
+            padding: 10px; 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+        }
+        .msg { 
+            padding: 8px 12px; 
+            border-radius: 10px; 
+            max-width: 80%; 
+        }
+        .bot { 
+            background: #eee; 
+            align-self: flex-start; 
+        }
+        .user { 
+            background: #dcf8c6; 
+            align-self: flex-end; 
+        }
+        .input-area { 
+            display: flex; 
+            border-top: 1px solid #eee; 
+            padding: 10px; 
+        }
+        input { 
+            flex: 1; 
+            border: none; 
+            outline: none; 
+        }
+        /* The typing bubble container */
+.typing {
+    background: #f1f0f0;
+    align-self: flex-start;
+    padding: 10px 15px;
+    border-radius: 18px;
+    display: flex;
+    gap: 4px;
+}
+
+.dot {
+    width: 6px;
+    height: 6px;
+    background: #999;
+    border-radius: 50%;
+    animation: bounce 1.3s infinite;
+}
+
+.dot:nth-child(2) { animation-delay: 0.15s; }
+.dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-6px); }
+}
+    </style>
+</head>
+<body>
+
+    <div id="chat-icon" onclick="toggleChat()">💬</div>
+
+    <div id="chatbox">
+        <div class="header">VOIS Companion 💙</div>
+        <button onclick="clearMemory()" style="font-size: 12px; color: white; background: rgba(255,255,255,0.2); border-radius: 5px; padding: 2px 5px;">Clear</button>
+        <div id="messages"></div>
+        <div class="input-area">
+            <input id="user-input" placeholder="Type hi..." onkeypress="if(event.key==='Enter') send()">
+            <button onclick="send()">➤</button>
+        </div>
+    </div>
+
+    <script>
+
+let medTime = null;
+
+function speak(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9; 
+    window.speechSynthesis.speak(utterance);
+}
+
+// --- 2. THE MAIN SEND FUNCTION ---
+async function send() {
+    const input = document.getElementById('user-input');
+    const message = input.value.trim();
+    if(!message) return;
+    addMsg('user', message);
+    input.value = '';
+    if (message.toLowerCase().includes("remind me at")) {
+        const timeMatch = message.match(/\d{2}:\d{2}/);
+        if (timeMatch) {
+            medTime = timeMatch[0];
+            addMsg('bot', `I've set a reminder for your medicine at ${medTime}. 💊`);
+            speak(`I've set a reminder for your medicine at ${medTime}`);
+            return;
+        }
+    }
+    showTyping();
+
+    try {
+        const res = await fetch('http://127.0.0.1:5000/chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({message: message})
+        });
+        const data = await res.json();
+        
+        hideTyping();
+        addMsg('bot', data.reply);
+        speak(data.reply); 
+
+        // Memory Logic: If bot learns name
+        if (data.reply.includes("remember your name")) {
+            const nameMatch = data.reply.match(/name is (\w+)/i) || data.reply.match(/Hello (\w+)/i);
+            if(nameMatch) localStorage.setItem('userName', nameMatch[1]);
+        }
+
+    } catch (e) {
+        hideTyping();
+        addMsg('bot', 'I had a tiny hiccup. Can you say that again?');
+    }
+}
+
+function addMsg(cls, txt) {
+    const messages = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'msg ' + cls;
+    div.innerText = txt;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+}
+
+function showTyping() {
+    const messages = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.id = 'typing-indicator';
+    div.className = 'typing msg';
+    div.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+}
+
+function hideTyping() {
+    const indicator = document.getElementById('typing-indicator');
+    if (indicator) indicator.remove();
+}
+
+function toggleChat() {
+    const box = document.getElementById('chatbox');
+    box.style.display = (box.style.display === 'flex') ? 'none' : 'flex';
+}
+
+// --- 4. SYSTEM LOOPS (Reminders & Welcome) ---
+setInterval(() => {
+    if (!medTime) return;
+    const now = new Date();
+    const currentTime = now.getHours().toString().padStart(2, '0') + ":" + 
+                        now.getMinutes().toString().padStart(2, '0');
+
+    if (currentTime === medTime) {
+        addMsg('bot', "💙 Medicine Reminder: It's time.");
+        speak("It is time for your medicine.");
+        medTime = null; 
+    }
+}, 30000);
+
+window.onload = () => {
+    const savedName = localStorage.getItem('userName');
+    setTimeout(() => {
+        if (savedName) {
+            addMsg('bot', `Welcome back, ${savedName}! 💙`);
+            speak(`Welcome back, ${savedName}`);
+        } else {
+            addMsg('bot', "Hello! I'm your VOIS Companion. What is your name? 💙");
+            speak("Hello! I'm your VOIS Companion. What is your name?");
+        }
+    }, 1000);
+};  
+function clearMemory() {
+    if (confirm("Are you sure you want me to forget your name?")) {
+        localStorage.removeItem('userName');
+        location.reload(); 
+    }
+}
+    </script>
+</body>
+</html>
