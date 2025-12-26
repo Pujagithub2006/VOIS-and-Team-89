@@ -6,6 +6,7 @@ from detection.inactivity import is_inactive
 from decision_engine.state_machine import FallStateMachine
 from alerts.buzzer import Buzzer
 from alerts.alert_controller import AlertController
+from decision_engine.range_monitor import RangeMonitor
 import time
 
 mode = "fall" 
@@ -13,16 +14,19 @@ mode = "fall"
 fsm = FallStateMachine()
 buzzer = Buzzer()
 alerts = AlertController(buzzer)
+range_monitor = RangeMonitor()
 
 prev_magnitude = 0
 
 while True:
+    phone_connected = True 
     ax, ay, az = get_motion_data(mode)
     magnitude = calculate_magnitude(ax, ay, az)
 
     spike = detect_fall(magnitude)
     posture = detect_posture(az)
     inactive = is_inactive(magnitude, prev_magnitude)
+    range_state = range_monitor.update(phone_connected)
 
     state = fsm.update(spike, posture, inactive)
 
@@ -35,4 +39,7 @@ while True:
     )
 
     prev_magnitude = magnitude
-    time.sleep(1)
+    time.sleep(1)  
+
+    if range_state == "OUT_OF_RANGE":
+        print("USER OUT OF RANGE")
