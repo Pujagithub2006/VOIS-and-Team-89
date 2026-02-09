@@ -4,7 +4,7 @@
 
 ---
 
-##🔹 About the Project
+## 🔹 About the Project
 
 **SilverCare** is an AI-powered wearable healthcare monitoring system designed to ensure the safety, independence, and well-being of elderly individuals living alone.
 
@@ -144,6 +144,7 @@ SilverCare focuses on:
 - Preventive healthcare
 - Faster emergency response
 - Caregiver peace of mind
+
 
 
 
