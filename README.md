@@ -56,7 +56,7 @@ SilverCare is a **wearable waistband device + AI platform** that:
 
 ---
 
-## 🛠️ Tech Stack
+## 🔹Tech Stack
 
 ### 🔹 Software
 - Python  
@@ -144,5 +144,6 @@ SilverCare focuses on:
 - Preventive healthcare
 - Faster emergency response
 - Caregiver peace of mind
+
 
 
